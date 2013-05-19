@@ -1,0 +1,22 @@
+﻿<ESRI.Configuration xmlns="http://schemas.esri.com/Desktop/AddIns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Voronoi_2.0</Name>
+  <AddInID>{b48429bc-4214-4731-90c1-69da9fa6eddc}</AddInID>
+  <Description>Creates Voronoi diagrams from input data</Description>
+  <Version>2.0</Version>
+  <Image>Images\Voronoi_2.0.png</Image>
+  <Author>Pinliang Dong, Conor Barber</Author>
+  <Company>University of North Texas</Company>
+  <Date>3/30/2013</Date>
+  <Targets>
+    <Target name="Desktop" version="10.0" />
+  </Targets>
+  <AddIn language="CLR" library="Voronoi_2.0.dll" namespace="Voronoi_2._0">
+    <ArcMap>
+      <Commands>
+        <Button id="University_of_North_Voronoi_2._0_Voronoi" class="Voronoi" message="Opens a form to generate weighted Voronoi Diagrams" caption="Weighted Voronoi" tip="Creates a weighted Voronoi diagram." category="Add-In Controls" image="Images\voronoi.png">
+          <Help heading="Voronoi">Opens a form to generate Voronoi diagrams (weighted or unweighted)</Help>
+        </Button>
+      </Commands>
+    </ArcMap>
+  </AddIn>
+</ESRI.Configuration>
