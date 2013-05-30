@@ -64,5 +64,5 @@ E:\Voronoi_2.0\obj\Debug\ResGen.read.1.tlog
 E:\Voronoi_2.0\obj\Debug\ResGen.write.1.tlog
 E:\Voronoi_2.0\obj\Debug\Voronoi_2.0.dll
 E:\Voronoi_2.0\obj\Debug\Voronoi_2.0.pdb
-E:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn
 G:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn
+E:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn

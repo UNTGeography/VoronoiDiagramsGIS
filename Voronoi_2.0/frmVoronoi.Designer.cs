@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmVoronoi));
             this.grpInputOptions = new System.Windows.Forms.GroupBox();
+            this.txtCellSize = new System.Windows.Forms.TextBox();
             this.lblSpatialReference = new System.Windows.Forms.Label();
             this.lblCellSizeFactor = new System.Windows.Forms.Label();
             this.chkSpatialJoin = new System.Windows.Forms.CheckBox();
@@ -48,7 +49,6 @@
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnHelp = new System.Windows.Forms.Button();
-            this.txtCellSize = new System.Windows.Forms.TextBox();
             this.grpInputOptions.SuspendLayout();
             this.grpDistance.SuspendLayout();
             this.grpVoronoiDiagram.SuspendLayout();
@@ -73,6 +73,15 @@
             this.grpInputOptions.TabIndex = 1;
             this.grpInputOptions.TabStop = false;
             this.grpInputOptions.Text = "Input Feature Class";
+            // 
+            // txtCellSize
+            // 
+            this.txtCellSize.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txtCellSize.Location = new System.Drawing.Point(141, 112);
+            this.txtCellSize.Name = "txtCellSize";
+            this.txtCellSize.Size = new System.Drawing.Size(170, 20);
+            this.txtCellSize.TabIndex = 9;
+            this.txtCellSize.TextChanged += new System.EventHandler(this.txtCellSize_TextChanged);
             // 
             // lblSpatialReference
             // 
@@ -109,6 +118,7 @@
             // 
             // cboWeightField
             // 
+            this.cboWeightField.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cboWeightField.FormattingEnabled = true;
             this.cboWeightField.Location = new System.Drawing.Point(142, 64);
             this.cboWeightField.Margin = new System.Windows.Forms.Padding(4);
@@ -283,15 +293,6 @@
             this.btnHelp.Text = "&Help";
             this.btnHelp.UseVisualStyleBackColor = true;
             this.btnHelp.Click += new System.EventHandler(this.btnHelp_Click);
-            // 
-            // txtCellSize
-            // 
-            this.txtCellSize.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txtCellSize.Location = new System.Drawing.Point(141, 112);
-            this.txtCellSize.Name = "txtCellSize";
-            this.txtCellSize.Size = new System.Drawing.Size(170, 20);
-            this.txtCellSize.TabIndex = 9;
-            this.txtCellSize.TextChanged += new System.EventHandler(this.txtCellSize_TextChanged);
             // 
             // frmVoronoi
             // 
