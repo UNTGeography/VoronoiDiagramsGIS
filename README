@@ -1,5 +1,13 @@
 This program is currently under development.
+
 New functionality is being added.
+
+YOU MUST HAVE ARCGIS 10 and .NET FRAMEWORK 3.5 INSTALLED IN ORDER TO RUN THIS PROGRAM. THIS PROGRAM IS AN ESRI ADD-IN PROJECT AND CAN BE INSTALLED BY DOUBLE CLICKING THE ADDIN FILE.
+
 The addin currently supports creation of Ordinary Voronoi Diagrams from input points, lines or polygon files.
+
+As of 05/29/2013, the program supports creation of Multiplicatively Weighted Voronoi Diagrams from input points, lines or polygon files.
+
+
 
 For questions or comments, contact Pinliang Dong at pdong@unt.edu.
