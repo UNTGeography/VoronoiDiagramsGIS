@@ -64,5 +64,16 @@ E:\Voronoi_2.0\obj\Debug\ResGen.read.1.tlog
 E:\Voronoi_2.0\obj\Debug\ResGen.write.1.tlog
 E:\Voronoi_2.0\obj\Debug\Voronoi_2.0.dll
 E:\Voronoi_2.0\obj\Debug\Voronoi_2.0.pdb
+G:\Voronoi_2.0\bin\Debug\System.Interactive.dll
+G:\Voronoi_2.0\bin\Debug\System.CoreEx.dll
+G:\Voronoi_2.0\bin\Debug\System.Observable.dll
+G:\Voronoi_2.0\bin\Debug\System.Interactive.xml
+G:\Voronoi_2.0\bin\Debug\System.CoreEx.xml
+G:\Voronoi_2.0\bin\Debug\System.Observable.xml
+E:\Voronoi_2.0\bin\Debug\System.CoreEx.dll
+E:\Voronoi_2.0\bin\Debug\System.Observable.dll
+E:\Voronoi_2.0\bin\Debug\System.Interactive.xml
+E:\Voronoi_2.0\bin\Debug\System.CoreEx.xml
+E:\Voronoi_2.0\bin\Debug\System.Observable.xml
 G:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn
 E:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn
