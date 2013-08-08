@@ -75,5 +75,6 @@ E:\Voronoi_2.0\bin\Debug\System.Observable.dll
 E:\Voronoi_2.0\bin\Debug\System.Interactive.xml
 E:\Voronoi_2.0\bin\Debug\System.CoreEx.xml
 E:\Voronoi_2.0\bin\Debug\System.Observable.xml
+E:\Voronoi_2.0\bin\Debug\System.Threading.xml
 G:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn
 E:\Voronoi_2.0\bin\Debug\Voronoi_2.0.esriAddIn

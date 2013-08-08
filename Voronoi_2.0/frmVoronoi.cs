@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -29,8 +30,8 @@ using ESRI.ArcGIS.Desktop.AddIns;
 using ESRI.ArcGIS.ArcCatalogUI;
 using ESRI.ArcGIS.SpatialAnalyst;
 using ESRI.ArcGIS.GeoAnalyst;
-//using System.Threading;
-//using System.Threading.Tasks;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 
@@ -43,12 +44,15 @@ namespace Voronoi_2._0
 
     public partial class frmVoronoi : Form
     {
+    
+
         
         public frmVoronoi()
         {
-            
+                
             
             InitializeComponent();
+            
             cboOutputExtent.SelectedIndex = 2;
             cboWeightFieldPoint.Enabled = false;
             cboWeightFieldLine.Enabled = false;
@@ -390,790 +394,1088 @@ namespace Voronoi_2._0
 
         private void btnOK_Click(object sender, EventArgs e)
         {
-            ESRI.ArcGIS.Framework.IApplication g_pApp = ArcMap.Application; //declare an instance of status bar and progress bar
-            ESRI.ArcGIS.esriSystem.IStatusBar g_psbar = g_pApp.StatusBar;
-            ESRI.ArcGIS.esriSystem.IStepProgressor g_pPro = g_psbar.ProgressBar;
-            btnOK.Enabled = false;
-            g_pPro.Message = "Calculating Raster Values";
-            g_pPro.MinRange = 0;
-            g_pPro.MaxRange = 100;
-            g_pPro.StepValue = 1;
-            g_pPro.Show();
-            int g_pct = 0;
+            try
+            {
+                //frmVoronoi.ActiveForm.Visible = false;
+                //this.Hide();
+                //if (!this.IsHandleCreated)
+                //{
+                    //this.CreateHandle();
+                //}
 
+                ESRI.ArcGIS.Framework.IApplication g_pApp = ArcMap.Application; //declare an instance of status bar and progress bar
+                ESRI.ArcGIS.esriSystem.IStatusBar g_psbar = g_pApp.StatusBar;
+
+                ESRI.ArcGIS.esriSystem.IStepProgressor g_pPro = g_psbar.ProgressBar;
+                btnOK.Enabled = false;
+                
+                g_pPro.Message = "Calculating Raster Values";
+                g_pPro.MinRange = 0;
+                //g_pPro.MaxRange = 100;
+                //g_pPro.StepValue = 1;
+                g_pPro.Show();
+                //int g_pct = 0;
+
+
+
+                ////////////
+                //First, check and make sure all input and output filepaths are populated and if the file exists. Exit runtime if any of these qualifications are not met.
+                ////////////
+
+
+
+                if (txtOutDistRaster.Text.Trim() == "")
+                {
+
+                    MessageBox.Show("No output distance raster specified", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+
+
+
+                if (txtOutVoronoi.Text.Trim() == "")
+                {
+                    MessageBox.Show("No output Voronoi polygon shapefile specified", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+                string strOutVoronoi = txtOutVoronoi.Text.Trim();
+
+                if (String.Equals(Extensions.RightExtract(strOutVoronoi, 4), ".shp", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    strOutVoronoi = Extensions.LeftExtract(strOutVoronoi, strOutVoronoi.Length - 4);
+
+                }
+
+
+
+
+                System.IO.FileInfo fsoDist = new System.IO.FileInfo(txtOutDistRaster.Text); //get output distance raster file info
+
+
+                if (fsoDist.Exists == true)
+                {
+                    MessageBox.Show("Output distance raster already exists", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+                System.IO.DirectoryInfo dsoDist = new System.IO.DirectoryInfo(fsoDist.DirectoryName); //get output distance raster directory info
+
+                if (Directory.Exists(dsoDist.FullName) == false)
+                {
+                    MessageBox.Show("Output raster directory does not exist", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+                if (fsoDist.Name.Length > 13 == true)
+                {
+                    MessageBox.Show("Invalid raster output file name. File name length must be 13 characters or less.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+                var findBadRasterCharacter = fsoDist.Name.IndexOfAny("()\"{}[]\\~'".ToCharArray());
+
+                if (findBadRasterCharacter != -1)
+                {
+                    MessageBox.Show("Invalid raster output file name. File name must not contain any of the following symbols:\n\n\t\u2022Open or close parentheses\n\t\u2022Open or close curly bracket\n\t\u2022Open or close bracket\n\t\u2022Backslash\n\t\u2022Tilde\n\t\u2022Single or double quote\n\t\u2022Comma\n\t\u2022Apostrophe\n\t\u2022Space", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    btnOK.Enabled = true;
+                    frmVoronoi.ActiveForm.Visible = true;
+                    return;
+                }
+
+
+                System.IO.FileInfo fsoVoronoi = new System.IO.FileInfo(txtOutVoronoi.Text); //check if output shapefile exists
+
+
+                if (fsoVoronoi.Exists == true) //check if output shapefile already exists
+                {
+                    MessageBox.Show("Output shapefile already exists", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    btnOK.Enabled = true;
+                    frmVoronoi.ActiveForm.Visible = true;
+                    return;
+                }
+
+                System.IO.DirectoryInfo dsoVoronoi = new System.IO.DirectoryInfo(fsoDist.DirectoryName); //get output Voronoi shapefile directory info
+
+                if (Directory.Exists(dsoVoronoi.FullName) == false)
+                {
+                    MessageBox.Show("Output Voronoi shapefile directory does not exist", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    btnOK.Enabled = true;
+                    frmVoronoi.ActiveForm.Visible = true;
+                    return;
+                }
+
+
+                if (!(cboFCPoint.SelectedIndex > -1)) //check for no value for input shapefile
+                {
+                    MessageBox.Show("No input shapefile selected", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    btnOK.Enabled = true;
+                    frmVoronoi.ActiveForm.Visible = true;
+                    return;
+                }
+
+
+                //ARCGIS SPATIAL ANALYST IS NEEDED TO EXECUTE RASTER CREATION FUNCTIONS. THIS CODE BELOW CHECKS FOR A SPATIAL ANALYST LICENSE
+
+                Type factoryType = Type.GetTypeFromProgID("esriSystem.ExtensionManager");
+                IExtensionManager extensionManager = (IExtensionManager)Activator.CreateInstance
+                    (factoryType);
+
+                IUID uid = new UIDClass();
+                uid.Value = "esriSpatialAnalystUI.SAExtension";
+                IExtension extension = extensionManager.FindExtension(uid);
+                IExtensionConfig extensionConfig = (IExtensionConfig)extension;
+
+                bool wasEnabled = (extensionConfig.State == esriExtensionState.esriESEnabled);
+
+                if (!wasEnabled)
+                {
+                    if (!(extensionConfig.State == esriExtensionState.esriESUnavailable))
+                    {
+                        //Enable the license.
+                        extensionConfig.State = esriExtensionState.esriESEnabled;
+                    }
+                    else
+                    // Handle the case when the license is not available. Provide an error message and exit to avoid running unavailable functionality.
+                    {
+                        MessageBox.Show("Spatial Analyst license unavailable. This addin requires the ArcGIS Spatial Analyst extension.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        frmVoronoi.ActiveForm.Visible = true;
+                        btnOK.Enabled = true;
+                        return;
+                    }
+                }
+
+                //END CHECK FOR SPATIAL ANALYST LICENSE
+
+
+                ////////////
+                //ONCE ALL CHECKS ARE DONE AND OK, BEGIN PROCESS OF CREATING RASTER(S)
+                ////////////
+
+
+                string strOutDistRasterFile = fsoDist.Name;
+                string strOutVoronoiFile = fsoVoronoi.Name;
+                string strOutRasPath = dsoDist.FullName;
+                string strOutVoronoiPath = dsoVoronoi.FullName;
+
+                //DELETE TEMPORARY FOLDERS
+                
+                System.IO.DirectoryInfo dso = new System.IO.DirectoryInfo(strOutRasPath);
+
+                if (Directory.Exists(strOutRasPath + "\\tmpVoro0001"))
+                {
+                    Directory.Delete(strOutRasPath + "\\tmpVoro0001", true);
+                }
+                if (Directory.Exists(strOutRasPath + "\\tmpVoro0002"))
+                {
+                    Directory.Delete(strOutRasPath + "\\tmpVoro0002", true);
+                }
+                if (Directory.Exists(strOutRasPath + "\\tmpVoro0003"))
+                {
+                    Directory.Delete(strOutRasPath + "\\tmpVoro0003", true);
+                }
+                if (Directory.Exists(strOutRasPath + "\\tmpVoro0004"))
+                {
+                    Directory.Delete(strOutRasPath + "\\tmpVoro0004", true);
+                }
+                
+
+                //string g_tempFolder = CreateTempFolder(strOutRasPath);
+
+                ESRI.ArcGIS.ArcMapUI.IMxDocument pDoc;
+                pDoc = ArcMap.Document;//get current mxd and set it as pDoc
+                ESRI.ArcGIS.Carto.IActiveView activeView;
+                activeView = pDoc.ActiveView;
+                IMap pMap = pDoc.FocusMap; //set pMap as current document
+
+
+
+
+
+                ESRI.ArcGIS.Carto.ILayer pLayer; //create a current layer
+                ESRI.ArcGIS.Carto.IFeatureLayer pFeatureLayer = null; //THIS FEATURE LAYER WILL EVENTUALLY BE USED TO CREATE THE DISTANCE RASTER
+                //ESRI.ArcGIS.Geodatabase.IFeatureClass pFeatureClass = null;
+                ESRI.ArcGIS.Carto.IEnumLayer pEnumLayer; //set up an array to hold the layers in map
+                pEnumLayer = pDoc.FocusMap.Layers; //get all layers in the map
+
+                List<ILayer> pLayerCollection = new List<ILayer>();
+
+                pLayer = pEnumLayer.Next();
+
+                bool weightFieldCheckStatusPoint = false;
+                bool weightFieldCheckStatusLine = false;
+                bool weightFieldCheckStatusPoly = false;
+
+                string weightFieldNamePoint = null;
+                string weightFieldNameLine = null;
+                string weightFieldNamePoly = null;
+
+
+                while (pLayer != null) //store the layers from comboboxes in a list
+                {
+                    if (chkPointEnabled.Checked == true && String.Compare(pLayer.Name, cboFCPoint.SelectedItem.ToString()) == 0) //set current layer to currently selected point combobox value and add it to list
+                    {
+                        pLayerCollection.Add(pLayer);
+                        if (chkWeightFieldPoint.Checked == true)
+                        {
+                            weightFieldCheckStatusPoint = true;
+                            weightFieldNamePoint = cboWeightFieldPoint.Text;
+                        }
+                    }
+                    if (chkLineEnabled.Checked == true && String.Compare(pLayer.Name, cboFCLine.SelectedItem.ToString()) == 0) //set current layer to currently selected line combobox value and add it to list
+                    {
+                        pLayerCollection.Add(pLayer);
+                        if (chkWeightFieldLine.Checked == true)
+                        {
+                            weightFieldCheckStatusLine = true;
+                            weightFieldNameLine = cboWeightFieldLine.Text;
+                        }
+                    }
+                    if (chkPolyEnabled.Checked == true && String.Compare(pLayer.Name, cboFCPoly.SelectedItem.ToString()) == 0) //set current layer to currently selected polygon combobox value and add it to list
+                    {
+                        pLayerCollection.Add(pLayer);
+                        if (chkWeightFieldPolygon.Checked == true)
+                        {
+                            weightFieldCheckStatusPoly = true;
+                            weightFieldNamePoly = cboWeightFieldPolygon.Text;
+                        }
+                    }
+
+                    pLayer = pEnumLayer.Next();
+
+                }
+
+
+                List<IGeoDataset> pGeodatasetCollection = new List<IGeoDataset>(); //create geodataset list to calculate extents of outputs
+                List<IFeatureLayer> pFeatureLayerCollection = new List<IFeatureLayer>();
+                int totalFeatureCount = 0;
+                //int stepFeatureCount = 0;
+
+                foreach (ILayer layer in pLayerCollection) //convert each layer in collection to an IGeodataset
+                {
+
+                    ESRI.ArcGIS.Carto.IFeatureLayer pFeatLayer = (IFeatureLayer)layer;
+                    if (pFeatLayer.Selectable == false) //check and make sure layer is selectable
+                    {
+                        MessageBox.Show("One of the input feature classes does not have selectable features", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        frmVoronoi.ActiveForm.Visible = true;
+                        btnOK.Enabled = true;
+                        return;
+                    }
+                    IFeatureClass pFC = pFeatLayer.FeatureClass;
+                    totalFeatureCount = totalFeatureCount + pFC.FeatureCount(null);
+                    pGeodatasetCollection.Add((IGeoDataset)pFeatLayer);
+                    pFeatureLayerCollection.Add(pFeatLayer);
+
+                }
+                g_pPro.MaxRange = totalFeatureCount;
+
+
+
+                //double width;
+                //double height;
+                double cellsize;
+
+                double envXMin = 0;
+                double envYMin = 0;
+                double envXMax = 0;
+                double envYMax = 0;
+
+                //Create RasterWorkSpaceFactory
+                Type factoryTypefinalraster = Type.GetTypeFromProgID(
+                                "esriDataSourcesRaster.RasterWorkspaceFactory");
+                IWorkspaceFactory pWSF = (IWorkspaceFactory)Activator.CreateInstance //DECLARE RASTER WORKSPACE FACTORY. THIS IS A SINGLETON OBJECT. ONLY ONE OF THESE PER PROGRAM
+                                (factoryTypefinalraster);
+
+                ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pSWSF;
+
+                Type t1 = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DECLARE SHAPEFILE WORKSPACE FACTORY. THIS IS A SINGLETON OBJECT. ONLY ONE OF THESE PER PROGRAM
+                System.Object obj3 = Activator.CreateInstance(t1);
+                pSWSF = (ShapefileWorkspaceFactory)obj3;
+
+               
+                //ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSF;//create a workspace factory for raster. The workspace factory is used to create new workspaces
+                 //create a workspace for temporary raster
+                //ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pFinalRWS; //create a workspace for final raster
+
+                //pWSF = new RasterWorkspaceFactoryClass(); //define the newly created workspace factory as an object
+
+                //pTempRWS = (IRasterWorkspace)pWSF.OpenFromFile(g_tempFolder, 0);
+                //pFinalRWS = (IRasterWorkspace)pWSF.OpenFromFile(strOutRasPath, 0);
+                //ESRI.ArcGIS.Geodatabase.IWorkspace pWS;
+                //pWS = (IWorkspace)pFinalRWS;
+
+                //the three numbers below define the envelope for the output IGeoDataset. They lay out the grid and determine the cell size of it.
+
+
+                foreach (IGeoDataset geodataset in pGeodatasetCollection)
+                {
+                    if (envXMin == 0)
+                    {
+                        envXMin = geodataset.Extent.Envelope.XMin;
+                    }
+                    else
+                    {
+                        envXMin = Math.Min(envXMin, geodataset.Extent.Envelope.XMin);
+                    }
+
+                    if (envYMin == 0)
+                    {
+                        envYMin = geodataset.Extent.Envelope.YMin;
+                    }
+                    else
+                    {
+                        envYMin = Math.Min(envYMin, geodataset.Extent.Envelope.YMin);
+                    }
+
+                    if (envXMax == 0)
+                    {
+                        envXMax = geodataset.Extent.Envelope.XMax;
+                    }
+                    else
+                    {
+                        envXMax = Math.Max(envXMax, geodataset.Extent.Envelope.XMax);
+                    }
+
+                    if (envYMax == 0)
+                    {
+                        envYMax = geodataset.Extent.Envelope.YMax;
+                    }
+                    else
+                    {
+                        envYMax = Math.Max(envYMax, geodataset.Extent.Envelope.YMax);
+                    }
+
+                }
+                bool containsInvalidCharacter = false; //flag for bad output extent value
+                double outExtent;
+
+                if (Double.TryParse(cboOutputExtent.Text.Trim(), out outExtent) || outExtent < 1.0) //Check if bad value is entered into CellSize textbox. 
+                {
+
+                }
+                else
+                {
+                    containsInvalidCharacter = true; //flag for bad value is set to true
+                }
+
+                if (containsInvalidCharacter) //if bad value flag is activated, exit runtime
+                {
+                    MessageBox.Show("Invalid output extent value. Output extent should be a whole number or decimal and output extent should be 1x or greater", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+
+
+                //pExt.XMin = envXMin;
+                //pExt.YMin = envYMin;
+                //pExt.XMax = envXMax;
+                //pExt.YMax = envYMax;
+
+                //pExt.Expand(outExtent, outExtent, true);
+
+                containsInvalidCharacter = false; //flag for bad cellsize value
+
+                if (Double.TryParse(txtCellSize.Text.Trim(), out cellsize)) //Check if bad value is entered into CellSize textbox. 
+                {
+
+                }
+                else
+                {
+                    containsInvalidCharacter = true; //flag for bad value is set to true
+                }
+
+                if (containsInvalidCharacter) //if bad value flag is activated, exit runtime
+                {
+                    MessageBox.Show("Invalid cell size value. Cell size should be a whole number or decimal.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    frmVoronoi.ActiveForm.Visible = true;
+                    btnOK.Enabled = true;
+                    return;
+                }
+                
+                
+                //List<IGeoDataset> pMinimumGeodatasetCollection = new List<IGeoDataset>(); //store output distance rasters
+
+
+               
+                
+                ESRI.ArcGIS.Geodatabase.IGeoDataset pMinimumRaster = null;
+
+
+
+                object cellsizelock = new object();
+                object xMinLock = new object();
+                object xMaxLock = new object();
+                object yMinLock = new object();
+                object yMaxLock = new object();
+                object outExtentLock = new object();
+                object threadLock = new object();
+                object selectLock = new object();
+
+                //foreach (IFeatureLayer pFLayer in pFeatureLayerCollection)
            
+                //Thread t = new Thread(new ThreadStart(() =>
+                CancellationTokenSource tokenSource = new CancellationTokenSource();
+                CancellationToken ct = tokenSource.Token;
 
-            ////////////
-            //First, check and make sure all input and output filepaths are populated and if the file exists. Exit runtime if any of these qualifications are not met.
-            ////////////
-
-
-
-            if (txtOutDistRaster.Text.Trim() == "")
-            {
-
-                MessageBox.Show("No output distance raster specified", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-
-
-
-            if (txtOutVoronoi.Text.Trim() == "")
-            {
-                MessageBox.Show("No output Voronoi polygon shapefile specified", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-            string strOutVoronoi = txtOutVoronoi.Text.Trim();
-
-            if (String.Equals(Extensions.RightExtract(strOutVoronoi, 4), ".shp", System.StringComparison.OrdinalIgnoreCase))
-            {
-                strOutVoronoi = Extensions.LeftExtract(strOutVoronoi, strOutVoronoi.Length - 4);
-
-            }
-
-
-
-
-            System.IO.FileInfo fsoDist = new System.IO.FileInfo(txtOutDistRaster.Text); //get output distance raster file info
-
-
-            if (fsoDist.Exists == true)
-            {
-                MessageBox.Show("Output distance raster already exists", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-            System.IO.DirectoryInfo dsoDist = new System.IO.DirectoryInfo(fsoDist.DirectoryName); //get output distance raster directory info
-
-            if (Directory.Exists(dsoDist.FullName) == false)
-            {
-                MessageBox.Show("Output raster directory does not exist", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-            if (fsoDist.Name.Length > 13 == true)
-            {
-                MessageBox.Show("Invalid raster output file name. File name length must be 13 characters or less.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-            var findBadRasterCharacter = fsoDist.Name.IndexOfAny("()\"{}[]\\~'".ToCharArray());
-
-            if (findBadRasterCharacter != -1)
-            {
-                MessageBox.Show("Invalid raster output file name. File name must not contain any of the following symbols:\n\n\t\u2022Open or close parentheses\n\t\u2022Open or close curly bracket\n\t\u2022Open or close bracket\n\t\u2022Backslash\n\t\u2022Tilde\n\t\u2022Single or double quote\n\t\u2022Comma\n\t\u2022Apostrophe\n\t\u2022Space", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-
-            System.IO.FileInfo fsoVoronoi = new System.IO.FileInfo(txtOutVoronoi.Text); //check if output shapefile exists
-
-
-            if (fsoVoronoi.Exists == true) //check if output shapefile already exists
-            {
-                MessageBox.Show("Output shapefile already exists", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-            System.IO.DirectoryInfo dsoVoronoi = new System.IO.DirectoryInfo(fsoDist.DirectoryName); //get output Voronoi shapefile directory info
-
-            if (Directory.Exists(dsoVoronoi.FullName) == false)
-            {
-                MessageBox.Show("Output Voronoi shapefile directory does not exist", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-
-            if (!(cboFCPoint.SelectedIndex > -1)) //check for no value for input shapefile
-            {
-                MessageBox.Show("No input shapefile selected", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-
-            //ARCGIS SPATIAL ANALYST IS NEEDED TO EXECUTE RASTER CREATION FUNCTIONS. THIS CODE BELOW CHECKS FOR A SPATIAL ANALYST LICENSE
-
-            Type factoryType = Type.GetTypeFromProgID("esriSystem.ExtensionManager");
-            IExtensionManager extensionManager = (IExtensionManager)Activator.CreateInstance
-                (factoryType);
-
-            IUID uid = new UIDClass();
-            uid.Value = "esriSpatialAnalystUI.SAExtension";
-            IExtension extension = extensionManager.FindExtension(uid);
-            IExtensionConfig extensionConfig = (IExtensionConfig)extension;
-
-            bool wasEnabled = (extensionConfig.State == esriExtensionState.esriESEnabled);
-
-            if (!wasEnabled)
-            {
-                if (!(extensionConfig.State == esriExtensionState.esriESUnavailable))
+                Task task = Task.Factory.StartNew(delegate
                 {
-                    //Enable the license.
-                    extensionConfig.State = esriExtensionState.esriESEnabled;
-                }
-                else
-                // Handle the case when the license is not available. Provide an error message and exit to avoid running unavailable functionality.
-                {
-                    MessageBox.Show("Spatial Analyst license unavailable. This addin requires the ArcGIS Spatial Analyst extension.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    btnOK.Enabled = true;
-                    return;
-                }
-            }
-
-            //END CHECK FOR SPATIAL ANALYST LICENSE
-         
-
-            ////////////
-            //ONCE ALL CHECKS ARE DONE AND OK, BEGIN PROCESS OF CREATING RASTER(S)
-            ////////////
-            
-
-            string strOutDistRasterFile = fsoDist.Name;
-            string strOutVoronoiFile = fsoVoronoi.Name;
-            string strOutRasPath = dsoDist.FullName;
-            string strOutVoronoiPath = dsoVoronoi.FullName;
-            string g_tempFolder = CreateTempFolder(strOutRasPath);
-
-            ESRI.ArcGIS.ArcMapUI.IMxDocument pDoc;
-            pDoc = ArcMap.Document;//get current mxd and set it as pDoc
-            ESRI.ArcGIS.Carto.IActiveView activeView;
-            activeView = pDoc.ActiveView;
-            IMap pMap = pDoc.FocusMap; //set pMap as current document
-
-
-
-            ESRI.ArcGIS.Carto.ILayer pLayer; //create a current layer
-            ESRI.ArcGIS.Carto.IFeatureLayer pFeatureLayer = null; //THIS FEATURE LAYER WILL EVENTUALLY BE USED TO CREATE THE DISTANCE RASTER
-            //ESRI.ArcGIS.Geodatabase.IFeatureClass pFeatureClass = null;
-            ESRI.ArcGIS.Carto.IEnumLayer pEnumLayer; //set up an array to hold the layers in map
-            pEnumLayer = pDoc.FocusMap.Layers; //get all layers in the map
-
-            List<ILayer> pLayerCollection = new List<ILayer>();
-            
-            pLayer = pEnumLayer.Next();
-
-            while (pLayer != null) //store the layers from comboboxes in a list
-            {
-                if (chkPointEnabled.Checked == true && String.Compare(pLayer.Name, cboFCPoint.SelectedItem.ToString()) == 0) //set current layer to currently selected point combobox value and add it to list
-                {
-                    pLayerCollection.Add(pLayer);
-                }
-                if (chkLineEnabled.Checked == true && String.Compare(pLayer.Name, cboFCLine.SelectedItem.ToString()) == 0) //set current layer to currently selected line combobox value and add it to list
-                {
-                    pLayerCollection.Add(pLayer);
-                }
-                if (chkPolyEnabled.Checked == true && String.Compare(pLayer.Name, cboFCPoly.SelectedItem.ToString()) == 0) //set current layer to currently selected polygon combobox value and add it to list
-                {
-                    pLayerCollection.Add(pLayer);
-                }
-
-                pLayer = pEnumLayer.Next(); 
-              
-            }
-
-        
-            List<IGeoDataset> pGeodatasetCollection = new List<IGeoDataset>(); //create geodataset list to calculate extents of outputs
-            List<IFeatureLayer> pFeatureLayerCollection = new List<IFeatureLayer>();
-            
-            foreach (ILayer layer in pLayerCollection) //convert each layer in collection to an IGeodataset
-            {
-
-                ESRI.ArcGIS.Carto.IFeatureLayer pFeatLayer = (IFeatureLayer)layer;
-                if (pFeatLayer.Selectable == false) //check and make sure layer is selectable
-                {
-                    MessageBox.Show("One of the input feature classes does not have selectable features", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    btnOK.Enabled = true;
-                    return;
-                }
-
-                pGeodatasetCollection.Add((IGeoDataset)pFeatLayer);
-                pFeatureLayerCollection.Add(pFeatLayer);
-
-            }
-
-        
-
-            //double width;
-            //double height;
-            double cellsize;
-
-            double envXMin = 0;
-            double envYMin = 0;
-            double envXMax = 0;
-            double envYMax = 0;
-
-            ESRI.ArcGIS.SpatialAnalyst.IDistanceOp pDistanceOP; //Create raster DistanceOp object
-            pDistanceOP = new RasterDistanceOpClass(); //define the newly created object as a new raster distance operation object
-            ESRI.ArcGIS.GeoAnalyst.IRasterAnalysisEnvironment pEnv = null; //Create a raster analysis environment. This sets up an area to do raster operations in
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSF;//create a workspace factory for raster. The workspace factory is used to create new workspaces
-            ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pTempRWS; //create a workspace for temporary raster
-            ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pFinalRWS; //create a workspace for final raster
-
-            pWSF = new RasterWorkspaceFactoryClass(); //define the newly created workspace factory as an object
-
-            pTempRWS = (IRasterWorkspace)pWSF.OpenFromFile(g_tempFolder, 0);
-            pFinalRWS = (IRasterWorkspace)pWSF.OpenFromFile(strOutRasPath, 0);
-            ESRI.ArcGIS.Geodatabase.IWorkspace pWS;
-            pWS = (IWorkspace)pFinalRWS;
-          
-            //the three numbers below define the envelope for the output IGeoDataset. They lay out the grid and determine the cell size of it.
-
-            ESRI.ArcGIS.Geometry.IEnvelope pExt; //create a new envelope to hold the feature class' size information
-            pExt = new EnvelopeClass(); //instantiate the envelope as an object
-
-
-            foreach (IGeoDataset geodataset in pGeodatasetCollection)
-            {
-                if (envXMin == 0)
-                {
-                    envXMin = geodataset.Extent.Envelope.XMin;
-                }
-                else
-                {
-                    envXMin = Math.Min(envXMin, geodataset.Extent.Envelope.XMin);
-                }
-
-                if (envYMin == 0)
-                {
-                    envYMin = geodataset.Extent.Envelope.YMin;
-                }
-                else
-                {
-                    envYMin = Math.Min(envYMin, geodataset.Extent.Envelope.YMin);
-                }
-
-                if (envXMax == 0)
-                {
-                    envXMax = geodataset.Extent.Envelope.XMax;
-                }
-                else
-                {
-                    envXMax = Math.Max(envXMax, geodataset.Extent.Envelope.XMax);
-                }
-
-                if (envYMax == 0)
-                {
-                    envYMax = geodataset.Extent.Envelope.YMax;
-                }
-                else
-                {
-                    envYMax = Math.Max(envYMax, geodataset.Extent.Envelope.YMax);
-                }
-
-            }
-            bool containsInvalidCharacter = false; //flag for bad output extent value
-            double outExtent;
-
-            if (Double.TryParse(cboOutputExtent.Text.Trim(), out outExtent) || outExtent < 1.0) //Check if bad value is entered into CellSize textbox. 
-            {
-
-            }
-            else
-            {
-                containsInvalidCharacter = true; //flag for bad value is set to true
-            }
-
-            if (containsInvalidCharacter) //if bad value flag is activated, exit runtime
-            {
-                MessageBox.Show("Invalid output extent value. Output extent should be a whole number or decimal and output extent should be 1x or greater", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-
-
-            pExt.XMin = envXMin;
-            pExt.YMin = envYMin;
-            pExt.XMax = envXMax;
-            pExt.YMax = envYMax;
-
-            pExt.Expand(outExtent, outExtent, true);
-
-            containsInvalidCharacter = false; //flag for bad cellsize value
-
-            if (Double.TryParse(txtCellSize.Text.Trim(), out cellsize)) //Check if bad value is entered into CellSize textbox. 
-            {
-
-            }
-            else
-            {
-                containsInvalidCharacter = true; //flag for bad value is set to true
-            }
-
-            if (containsInvalidCharacter) //if bad value flag is activated, exit runtime
-            {
-                MessageBox.Show("Invalid cell size value. Cell size should be a whole number or decimal.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
-        
-
-            List<IGeoDataset> pMinimumGeodatasetCollection = new List<IGeoDataset>(); //store output distance rasters
-            ESRI.ArcGIS.Geodatabase.IGeoDataset pMinimumRaster = null;
-
-            
-            foreach (IFeatureLayer pFLayer in pFeatureLayerCollection)
-            //Parallel.ForEach(pFeatureLayerCollection, pFLayer =>
-            {
-
-                ////////////
-                //Loop through all points:
-                ////////////
-
-
-                bool weightFieldCheckStatus = false; //get whether that respective type has its weight field checked or not
-                string weightFieldName = null;
-
-                if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPoint | pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryMultipoint)
-                {
-                    if (chkWeightFieldPoint.Checked == true)
+                    ct.ThrowIfCancellationRequested();
+                    Parallel.ForEach(pFeatureLayerCollection, pFLayer =>
                     {
-                        weightFieldCheckStatus = true;
-                        weightFieldName = cboWeightFieldPoint.Text;
+                        ESRI.ArcGIS.Geometry.IEnvelope pExt; //create a new envelope to hold the feature class' size information
+                        pExt = new EnvelopeClass(); //instantiate the envelope as an object
+
+                        lock (xMinLock)
+                        {
+                            pExt.XMin = envXMin;
+                        }
+                        lock (xMaxLock)
+                        {
+                            pExt.XMax = envXMax;
+                        }
+                        lock (yMinLock)
+                        {
+                            pExt.YMin = envYMin;
+                        }
+                        lock (yMaxLock)
+                        {
+                            pExt.YMax = envYMax;
+                        }
+                        lock (outExtentLock)
+                        {
+                            pExt.Expand(outExtent, outExtent, true);
+                        }
+
+                        ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pTempRWS;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pOutputRaster = null;
+                        ESRI.ArcGIS.GeoAnalyst.IRasterAnalysisEnvironment pEnv = null; //Create a raster analysis environment. This sets up an area to do raster operations in
+                        ESRI.ArcGIS.SpatialAnalyst.IDistanceOp pDistanceOP; //Create raster DistanceOp object
+                        pDistanceOP = new RasterDistanceOpClass(); //define the newly created object as a new raster distance operation object
+
+                        string g_tempFolder = null;
+                        lock (strOutRasPath) //threadsafe creation of folders from method
+                        {
+                            System.IO.DirectoryInfo dirInfo = new System.IO.DirectoryInfo(strOutRasPath); //get file info from specified output pathway
+
+                            if (Directory.Exists(strOutRasPath + "\\tmpVoro0001"))
+                            {
+                                if (Directory.Exists(strOutRasPath + "\\tmpVoro0002"))
+                                {
+                                    System.IO.Directory.CreateDirectory(strOutRasPath + "\\tmpVoro0003");
+                                    g_tempFolder = strOutRasPath + "\\tmpVoro0003";
+                                }
+
+                                else
+                                {
+                                    System.IO.Directory.CreateDirectory(strOutRasPath + "\\tmpVoro0002");
+                                    g_tempFolder = strOutRasPath + "\\tmpVoro0002";
+                                }
+                                //Directory.Delete(rootFolder + "\\tmpVoro0001", true);
+                            }
+
+                            else
+                            {
+
+                                System.IO.Directory.CreateDirectory(strOutRasPath + "\\tmpVoro0001");
+                                g_tempFolder = strOutRasPath + "\\tmpVoro0001";
+
+                            }
+                            //g_tempFolder = CreateTempFolder(strOutRasPath);
+                        }
+
+                        //Create RasterWorkSpaceFactory
+                        /*Type factoryTyperaster = Type.GetTypeFromProgID(
+                                        "esriDataSourcesRaster.RasterWorkspaceFactory");
+                        IWorkspaceFactory pRWSF = (IWorkspaceFactory)Activator.CreateInstance
+                                        (factoryTyperaster);
+                            */
+
+                        //ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pRWSF;
+                        //pRWSF = new RasterWorkspaceFactoryClass();
+                        lock (pWSF)
+                        {
+                            pTempRWS = (IRasterWorkspace)pWSF.OpenFromFile(g_tempFolder, 0);
+                        }
+
+
+
+                        ////////////
+                        //Loop through all points:
+                        ////////////
+
+
+                        bool weightFieldCheckStatus = false; //get whether that respective type has its weight field checked or not
+                        string weightFieldName = null;
+
+                        if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPoint | pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryMultipoint)
+                        {
+
+                            weightFieldCheckStatus = weightFieldCheckStatusPoint;
+                            weightFieldName = weightFieldNamePoint;
+
+
+                        }
+
+                        if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryLine | pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPolyline)
+                        {
+
+                            weightFieldCheckStatus = weightFieldCheckStatusLine;
+                            weightFieldName = weightFieldNameLine;
+
+
+                        }
+
+                        if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPolygon)
+                        {
+
+                            weightFieldCheckStatus = weightFieldCheckStatusPoly;
+                            weightFieldName = weightFieldNamePoly;
+
+
+
+                        }
+
+
+
+                        // ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSFact; //create general workspace factory (this is the directory you will be working in)
+                        //pWSFact = new ShapefileWorkspaceFactoryClass(); //set general workspace as a shapefile workspace. WARNING: USING THIS CAUSES A STRANGE COM REWRAPPING ERROR. IT IS AN ESRI BUG
+
+                        //Type t = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DO NOT REMOVE THIS LINE OR THE FOLLOWING TWO LINES. Fixes strange casting error from COM rewrapping. (ESRI BUGFIX)
+                        //System.Object obj2 = Activator.CreateInstance(t);
+
+                        //pWSFact = (ShapefileWorkspaceFactory)obj2;
+
+                        ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFeatureWorkspace; //create a feature workspace to handle features
+                        lock (pSWSF)
+                        {
+                            pFeatureWorkspace = (IFeatureWorkspace)pSWSF.OpenFromFile(g_tempFolder, 0); //set feature workspace as the shapefile workspace defined earlier, and specify a file location
+                        }
+                        ESRI.ArcGIS.Geodatabase.IFeatureCursor pFCursor1; //use to loop through the feature class. You can think of this as a marker that grabs each feature as it loops through the array of features
+                        pFCursor1 = pFLayer.Search(null, false);
+                        int weightFldIndex = 0; //used to find the location of weight column for weighted voronoi calculation
+
+
+                        long recNum; //store the number of records
+                        recNum = pFLayer.FeatureClass.FeatureCount(null); //set counter at 0
+
+                        if (recNum == 0) //check for no features in feature class
+                        {
+                            MessageBox.Show("Cannot create diagram. Layer has no features.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            frmVoronoi.ActiveForm.Visible = true;
+                            btnOK.Enabled = true;
+                            return;
+                        }
+                        if (recNum == 1) //check for only one feature in feature class
+                        {
+                            MessageBox.Show("Cannot create diagram. Layer has only one feature.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            frmVoronoi.ActiveForm.Visible = true;
+                            btnOK.Enabled = true;
+                            return;
+                        }
+
+                        ESRI.ArcGIS.Geodatabase.IFeature pFeature1; //declare an instance of feature to store the feature itself 
+
+                        pFeature1 = pFCursor1.NextFeature(); //get the feature from the marker as it loops through the array
+
+
+                        if (pFeature1 == null) //check if first feature is null
+                        {
+                            MessageBox.Show("Error: First feature is null", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            frmVoronoi.ActiveForm.Visible = true;
+                            btnOK.Enabled = true;
+                            return;
+                        }
+
+
+
+                        ////////////
+                        //CODE TO SET FACTORS FOR WEIGHTED VORONOI GOES HERE
+                        ////////////
+
+                        double minWeight = 0;
+                        double maxWeight = 0;
+                        double minmaxrange = 0;
+                        double weightValue = 0;
+                        int stepFeatureCount = 0;
+
+
+                        if (weightFieldCheckStatus == true)
+                        {
+                            stepFeatureCount = 1;
+                            //IF WEIGHT FIELD IS CHECKED,
+                            //GET THE MAX AND MIN VALUES USED TO CREATE WEIGHTS
+                            string strWeightFieldName = weightFieldName;
+                            weightFldIndex = pFCursor1.FindField(weightFieldName);
+                            int n = 0;
+                            while (pFeature1 != null)
+                            {
+                                weightValue = Convert.ToDouble(pFeature1.get_Value(weightFldIndex)); ;
+
+                                if (weightValue < 0) //check for negative values in the weight field
+                                {
+                                    MessageBox.Show("All weight values must be non-negative", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                                    frmVoronoi.ActiveForm.Visible = true;
+                                    btnOK.Enabled = true;
+                                    return;
+                                }
+
+                                if (n == 0)
+                                {
+                                    minWeight = weightValue;
+                                    maxWeight = weightValue;
+                                }
+                                if (weightValue > maxWeight)
+                                {
+                                    maxWeight = weightValue;
+                                }
+                                if (weightValue < minWeight)
+                                {
+                                    minWeight = weightValue;
+                                }
+
+                                minmaxrange = maxWeight - minWeight;
+                                n = n + 1;
+                                pFeature1 = pFCursor1.NextFeature();
+
+                            }
+
+                            if (minWeight == maxWeight) //if max and min are equal, no need for MWVD calculations. Do OVD instead.
+                            {
+                                weightFieldCheckStatus = false;
+                            }
+
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(pFCursor1);
+
+                        }
+
+
+
+
+                        ////////////
+                        //CODE TO SET FACTORS FOR WEIGHTED VORONOI ENDS HERE
+                        ////////////
+
+
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_0;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_00;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_1;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_11;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pTempMinRaster;
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pWeightRaster;
+
+                        ESRI.ArcGIS.Geodatabase.IGeoDataset pTempGeodataset;
+                        ESRI.ArcGIS.Carto.IFeatureLayer pTempFeatureLayer;
+
+                        ////////////
+                        //Loop through all features.
+                        ////////////
+
+                        ESRI.ArcGIS.GeoAnalyst.IConversionOp pConvOp;
+                        pConvOp = new RasterConversionOpClass();
+
+                        ESRI.ArcGIS.Carto.IFeatureSelection pFeatureSelection;
+                        pFeatureSelection = (IFeatureSelection)pFLayer; // ***IMPORTANT*** THIS SETS THE CURRENT FEATURE LAYER IN COMBOBOX TO THE FEATURE SELECTION TO BE USED FOR CONVERSION TO RASTER 
+                        ESRI.ArcGIS.Geodatabase.ISelectionSet pSelectionSet;
+                        pSelectionSet = pFeatureSelection.SelectionSet; //Defines a selection set of features. The pFeatureLayer information is stored here.
+
+                        ESRI.ArcGIS.Geodatabase.IFeatureCursor pFCursor2;
+                        ESRI.ArcGIS.Geodatabase.IFeature pFeature2;
+                        ESRI.ArcGIS.Geodatabase.IQueryFilter pQueryFilter;
+
+                        pQueryFilter = new QueryFilterClass();
+                        pFCursor2 = pFLayer.Search(null, false);
+                        pSelectionSet = pFeatureSelection.SelectionSet;
+                        pFeature2 = pFCursor2.NextFeature();
+
+                        pEnv = (IRasterAnalysisEnvironment)pDistanceOP;
+
+                        lock (pWSF)
+                        {
+                            pEnv.OutWorkspace = (IWorkspace)pTempRWS;
+                        }
+                        
+                        lock (cellsizelock)
+                        {
+                            pEnv.SetCellSize(esriRasterEnvSettingEnum.esriRasterEnvValue, cellsize);
+                        }
+
+
+                        pEnv.SetExtent(esriRasterEnvSettingEnum.esriRasterEnvValue, pExt);
+
+
+
+
+                        if (weightFieldCheckStatus == true)//create MWVD if weight field checked
+                        {
+                            int n = 0; //counter
+                            double varWeight;
+                            while (!(pFeature2 == null)) //loop through each feature in the input feature class
+                            {
+                                ////////////
+                                //Select the feature
+                                ////////////
+                                lock (selectLock) //make sure that ArcGIS doesn't try to select two layers at once.
+                                {
+                                    pFeatureSelection.Clear();
+                                    pSelectionSet = pFeatureSelection.SelectionSet;
+                                    pSelectionSet.Add(pFeature2.OID);
+                                    pFeatureSelection.SelectionSet = pSelectionSet;
+                                }
+
+                                ////////////
+                                //Convert the feature to a featurelayer and get pTempGeodataset for the feature layer
+                                ////////////
+                                pTempFeatureLayer = Selection2FeatureLayer(pFLayer, pSWSF, g_tempFolder, pFLayer.Name + "tmpShp" + n.ToString());
+                                pTempGeodataset = (IGeoDataset)pTempFeatureLayer.FeatureClass;
+                             
+
+                                ////////////
+                                //Use math operation to get local minimum
+                                ////////////
+
+                                ESRI.ArcGIS.SpatialAnalyst.IMathOp pMathOp = new RasterMathOpsClass();
+                                ESRI.ArcGIS.GeoAnalyst.IRasterMakerOp pRasterMakerOp = new RasterMakerOpClass();
+
+                                varWeight = Convert.ToDouble(pFeature2.get_Value(weightFldIndex)); //get the value of the feature's row in weight field
+                                if (varWeight == 0)
+                                {
+                                    varWeight = 0.0001;
+                                }
+                                else
+                                {
+                                   
+                                    varWeight = (varWeight / maxWeight);
+                                }
+
+                                if (n == 0)
+                                {
+                                    pDistRaster_0 = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false); //get regular distance raster 
+                                    pWeightRaster = pRasterMakerOp.MakeConstant(varWeight, false); //create constant weight raster from weight number
+                                    pDistRaster_00 = pMathOp.Divide(pDistRaster_0, pWeightRaster); //divide regular distance raster by weight field
+                                    pOutputRaster = pDistRaster_00; //store final output raster into pOutputRaster
+                                }
+                                if (n > 0)
+                                {
+                                    pDistRaster_1 = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false); //get regular distance raster
+                                    pWeightRaster = pRasterMakerOp.MakeConstant(varWeight, false); //create constant weight raster from weight number
+                                    pDistRaster_11 = pMathOp.Divide(pDistRaster_1, pWeightRaster); //divide regular distance raster by weight field
+                                    pTempMinRaster = LocalMinimum2Rasters(pOutputRaster, pDistRaster_11, g_tempFolder); //compare current raster with new raster and getminimum
+                                    pOutputRaster = pTempMinRaster; //store the new minimum raster into pOutputRaster
+                                }
+                                lock (pSWSF)
+                                {
+                                    DeleteFeatureDataset(g_tempFolder, pFLayer.Name + "tmpShp" + n.ToString(), pSWSF);
+                                }
+                                n = n + 1;
+                                // g_pct = Convert.ToInt32((n / recNum) * 100);
+                                // g_pPro.Position = g_pct;
+                                lock (threadLock)
+                                {
+                                    BeginInvoke((Action)(() =>
+                                    {
+                                        WriteProgress(stepFeatureCount, totalFeatureCount, g_pPro);
+                                    }));
+                                }
+
+                                pFeature2 = pFCursor2.NextFeature();
+
+
+                            }
+                            pDistanceOP = null;
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(pFCursor2);
+
+
+                        }
+
+
+                        else
+                        {
+                            stepFeatureCount = pFLayer.FeatureClass.FeatureCount(null);
+                            lock (threadLock)
+                            {
+
+                                BeginInvoke((Action)(() =>
+                                {
+                                    WriteProgress(stepFeatureCount, totalFeatureCount, g_pPro);
+                                }));
+                            }
+
+                            ESRI.ArcGIS.Geodatabase.IGeoDataset temporaryGeodataset = (IGeoDataset)pFLayer.FeatureClass;
+                            pOutputRaster = pDistanceOP.EucDistanceFull(temporaryGeodataset, true, false, false);
+                            pDistanceOP = null;
+
+                            //CreateOVDistanceRaster(pFLayer.FeatureClass, pDistanceOP, out pOutputRaster);
+
+                        }
+
+                        ESRI.ArcGIS.DataSourcesRaster.IRasterBandCollection ptmpBandCol; //this code block takes an IGeoDataset and converts it to a raster dataset
+                        ptmpBandCol = (IRasterBandCollection)pOutputRaster;
+                        ESRI.ArcGIS.DataSourcesRaster.IRasterBand ptmpBand;
+                        ptmpBand = ptmpBandCol.Item(0);
+                        ESRI.ArcGIS.Geodatabase.IRasterDataset ptmpDataset;
+                        ptmpDataset = ptmpBand.RasterDataset;
+
+                        //pTempRWS = (IRasterWorkspace)pWSF.OpenFromFile(g_tempfolder, 0);
+                        //ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pFinalRWS;
+                        //pFinalRWS = (IRasterWorkspace)pWSF.OpenFromFile(strOutRasPath, 0);
+                        ESRI.ArcGIS.Geodatabase.IWorkspace ptmpWS;
+                        lock (pWSF)
+                        {
+                            ptmpWS = (IWorkspace)pTempRWS;
+                        }
+                        
+
+                        if (ptmpDataset.CanCopy())
+                        {
+                            ptmpDataset.Copy("temp", ptmpWS);
+
+                        }
+
+                        //lock (threadLock) //threadsafe adding to the list of output geodatasets
+                        //{
+                        //pMinimumGeodatasetCollection.Add(pOutputRaster);
+                        //}
+
+                        pFeatureSelection.Clear();
+
+                    });//))
+                }, tokenSource.Token);
+
+                //t.SetApartmentState(ApartmentState.STA);
+                // Start the thread.
+                //t.Start();
+
+
+                //t.Join();
+               
+                //pTempGeodataset = (IGeoDataset)pFeatureLayer.FeatureClass;
+                //pMinimumRaster = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false);
+
+                task.ContinueWith((t) =>
+
+                BeginInvoke((Action)(() =>
+                {
+
+
+                    System.IO.Directory.CreateDirectory(strOutRasPath + "\\tmpVoro0004");
+
+
+
+                    List<IGeoDataset> pGeodatasetColl = new List<IGeoDataset>();
+
+                    if (Directory.Exists(strOutRasPath + "\\tmpVoro0001"))
+                    {
+                        pGeodatasetColl.Add((IGeoDataset)OpenFileRasterDataset(strOutRasPath + "\\tmpVoro0001", "temp", pWSF));
                     }
 
-                }
-
-                if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryLine | pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPolyline)
-                {
-
-                    if (chkWeightFieldLine.Checked == true)
+                    if (Directory.Exists(strOutRasPath + "\\tmpVoro0002"))
                     {
-                        weightFieldCheckStatus = true;
-                        weightFieldName = cboWeightFieldLine.Text;
+                        pGeodatasetColl.Add((IGeoDataset)OpenFileRasterDataset(strOutRasPath + "\\tmpVoro0002", "temp", pWSF));
                     }
 
-                }
-
-                if (pFLayer.FeatureClass.ShapeType == esriGeometryType.esriGeometryPolygon)
-                {
-                    if (chkWeightFieldPolygon.Checked == true)
+                    if (Directory.Exists(strOutRasPath + "\\tmpVoro0003"))
                     {
-                        weightFieldCheckStatus = true;
-                        weightFieldName = cboWeightFieldPolygon.Text;
+                        pGeodatasetColl.Add((IGeoDataset)OpenFileRasterDataset(strOutRasPath + "\\tmpVoro0003", "temp", pWSF));
+
                     }
 
-                }
 
 
-                ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSFact; //create general workspace factory (this is the directory you will be working in)
-                //pWSFact = new ShapefileWorkspaceFactoryClass(); //set general workspace as a shapefile workspace. WARNING: USING THIS CAUSES A STRANGE COM REWRAPPING ERROR. IT IS AN ESRI BUG
-
-                Type t = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DO NOT REMOVE THIS LINE OR THE FOLLOWING TWO LINES. Fixes strange casting error from COM rewrapping. (ESRI BUGFIX)
-                System.Object obj2 = Activator.CreateInstance(t);
-
-                pWSFact = (ShapefileWorkspaceFactory)obj2;
-
-                ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFeatureWorkspace; //create a feature workspace to handle features
-                pFeatureWorkspace = (IFeatureWorkspace)pWSFact.OpenFromFile(g_tempFolder, 0); //set feature workspace as the shapefile workspace defined earlier, and specify a file location
-
-                ESRI.ArcGIS.Geodatabase.IFeatureCursor pFCursor1; //use to loop through the feature class. You can think of this as a marker that grabs each feature as it loops through the array of features
-                pFCursor1 = pFLayer.Search(null, false);
-                int weightFldIndex = 0; //used to find the location of weight column for weighted voronoi calculation
-
-
-                long recNum; //store the number of records
-                recNum = pFLayer.FeatureClass.FeatureCount(null); //set counter at 0
-
-                if (recNum == 0) //check for no features in feature class
-                {
-                    MessageBox.Show("Cannot create diagram. Layer has no features.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    btnOK.Enabled = true;
-                    return;
-                }
-                if (recNum == 1) //check for only one feature in feature class
-                {
-                    MessageBox.Show("Cannot create diagram. Layer has only one feature.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    btnOK.Enabled = true;
-                    return;
-                }
-
-                ESRI.ArcGIS.Geodatabase.IFeature pFeature1; //declare an instance of feature to store the feature itself 
-                pFeature1 = pFCursor1.NextFeature(); //get the feature from the marker as it loops through the array
-
-
-                if (pFeature1 == null) //check if first feature is null
-                {
-                    MessageBox.Show("Error: First feature is null", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    btnOK.Enabled = true;
-                    return;
-                }
-
-                ////////////
-                //CODE TO SET FACTORS FOR WEIGHTED VORONOI GOES HERE
-                ////////////
-
-                double minWeight = 0;
-                double maxWeight = 0;
-                double minmaxrange = 0;
-
-
-                if (weightFieldCheckStatus == true)
-                {
-                    //IF WEIGHT FIELD IS CHECKED,
-                    //GET THE MAX AND MIN VALUES USED TO CREATE WEIGHTS
-                    string strWeightFieldName = weightFieldName;
-
-                    var maxminpair = GetMaxMinFromNumericalField(pFLayer.FeatureClass, strWeightFieldName); //store the min/max of weight field in a key/value pair
-
-                    minWeight = maxminpair.Key;
-                    maxWeight = maxminpair.Value;
-                    minmaxrange = maxWeight - minWeight;
-
-                    weightFldIndex = pFCursor1.FindField(weightFieldName); //set the location of weight field to be used by searching for it in attribute table
-
-                    if ((minWeight < 0) | (maxWeight < 0)) //check for negative values in the weight field
+                    if (pGeodatasetColl.Count == 1) //if just one input feature class
                     {
-                        MessageBox.Show("All weight values must be non-negative", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        pMinimumRaster = pGeodatasetColl[0];
+                        pFeatureLayer = pFeatureLayerCollection[0];
+
+                    }
+
+                    else if (pGeodatasetColl.Count == 2) //if two input feature classes, get local minimum
+                    {
+
+                        pMinimumRaster = LocalMinimum2Rasters(pGeodatasetColl[0], pGeodatasetColl[1], strOutRasPath + "\\tmpVoro0004");
+                    }
+
+                    else if (pGeodatasetColl.Count == 3) //if three input feature classes, get local minimum
+                    {
+                        pMinimumRaster = LocalMinimum3Rasters(pGeodatasetColl[0], pGeodatasetColl[1], pGeodatasetColl[2], strOutRasPath + "\\tmpVoro0004");
+                    }
+
+
+               
+
+                    //pEnv.SetCellSize(esriRasterEnvSettingEnum.esriRasterEnvValue, cellsize);
+                    //pEnv.SetExtent(esriRasterEnvSettingEnum.esriRasterEnvValue, pExt);
+
+
+
+                    ESRI.ArcGIS.DataSourcesRaster.IRasterBandCollection pRasBandCol; //this code block takes an IGeoDataset and converts it to a raster dataset
+                    pRasBandCol = (IRasterBandCollection)pMinimumRaster;
+                    ESRI.ArcGIS.DataSourcesRaster.IRasterBand pRasBand;
+                    pRasBand = pRasBandCol.Item(0);
+                    ESRI.ArcGIS.Geodatabase.IRasterDataset pRasDataset;
+                    pRasDataset = pRasBand.RasterDataset;
+
+                    //pTempRWS = (IRasterWorkspace)pWSF.OpenFromFile(g_tempfolder, 0);
+                    ESRI.ArcGIS.DataSourcesRaster.IRasterWorkspace pFinalRWS;
+                    pFinalRWS = (IRasterWorkspace)pWSF.OpenFromFile(strOutRasPath, 0);
+                    IWorkspace pWS = (IWorkspace)pFinalRWS;
+
+                    if (pRasDataset.CanCopy())
+                    {
+                        pRasDataset.Copy(strOutDistRasterFile, pWS);
+
+                    }
+                    else
+                    {
+                        MessageBox.Show("Unable to copy raster dataset", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        frmVoronoi.ActiveForm.Visible = true;
                         btnOK.Enabled = true;
                         return;
                     }
 
 
-                    if (minWeight == maxWeight) //if max and min are equal, no need for MWVD calculations. Do OVD instead.
-                    {
-
-                        weightFieldCheckStatus = false;
-                    }
-                }
-
-
-
-
-
-                //***WRITE A METHOD HERE THAT TAKES AS ITS INPUT 1 pTempGeodataset AND OUTPUTS A FINAL WEIGHTED pMinimumRaster*** 
-                //***GET 1-3 SEPERATE pTempGeodatasets AND STORE THEM IN AN IENUMERABLE. USE PARALELL.FOREACH ON IENUMERABLE OF 1-3 pTempGeodatasets TO EXECUTE THE MWVD CALCULATIONS IN PARALLEL***
-
-                ////////////
-                //CODE TO SET FACTORS FOR WEIGHTED VORONOI ENDS HERE
-                ////////////
-
-
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_0;
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_00;
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_1;
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pDistRaster_11;
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pTempMinRaster;
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pWeightRaster;
+                    ////////////
+                    //CREATE FLOW DIRECTION AND BASIN RASTERS WHICH WILL BE USED TO GENERATE POLYGON SHAPEFILE FROM DISTANCE RASTER
+                    ////////////
 
-                ESRI.ArcGIS.Geodatabase.IGeoDataset pTempGeodataset;
-                ESRI.ArcGIS.Carto.IFeatureLayer pTempFeatureLayer;
+                    ESRI.ArcGIS.SpatialAnalyst.IHydrologyOp pHydrologyOp;
+                    pHydrologyOp = new RasterHydrologyOpClass();
 
-                ////////////
-                //Loop through all features.
-                ////////////
-
-                ESRI.ArcGIS.GeoAnalyst.IConversionOp pConvOp;
-                pConvOp = new RasterConversionOpClass();
-
-                ESRI.ArcGIS.Carto.IFeatureSelection pFeatureSelection;
-                pFeatureSelection = (IFeatureSelection)pFLayer; // ***IMPORTANT*** THIS SETS THE CURRENT FEATURE LAYER IN COMBOBOX TO THE FEATURE SELECTION TO BE USED FOR CONVERSION TO RASTER 
-                ESRI.ArcGIS.Geodatabase.ISelectionSet pSelectionSet;
-                pSelectionSet = pFeatureSelection.SelectionSet; //Defines a selection set of features. The pFeatureLayer information is stored here.
-
-                ESRI.ArcGIS.Geodatabase.IFeatureCursor pFCursor2;
-                ESRI.ArcGIS.Geodatabase.IFeature pFeature2;
-                ESRI.ArcGIS.Geodatabase.IQueryFilter pQueryFilter;
-
-                pQueryFilter = new QueryFilterClass();
-                pFCursor2 = pFLayer.Search(null, false);
-                pSelectionSet = pFeatureSelection.SelectionSet;
-                pFeature2 = pFCursor2.NextFeature();
-
-                pEnv = (IRasterAnalysisEnvironment)pDistanceOP;
-                pEnv.OutWorkspace = (IWorkspace)pTempRWS;
-                pEnv.SetCellSize(esriRasterEnvSettingEnum.esriRasterEnvValue, cellsize);
-                pEnv.SetExtent(esriRasterEnvSettingEnum.esriRasterEnvValue, pExt);
-
-                if (weightFieldCheckStatus == true)//create MWVD if weight field checked
-                {
-                    int n = 0; //counter
-                    double varWeight;
-                    while (!(pFeature2 == null)) //loop through each feature in the input feature class
-                    {
-                        ////////////
-                        //Select the feature
-                        ////////////
-
-                        pFeatureSelection.Clear();
-                        pSelectionSet = pFeatureSelection.SelectionSet;
-                        pSelectionSet.Add(pFeature2.OID);
-                        pFeatureSelection.SelectionSet = pSelectionSet;
-
-                        ////////////
-                        //Convert the feature to a featurelayer and get pTempGeodataset for the feature layer
-                        ////////////
-
-                        pTempFeatureLayer = Selection2FeatureLayer(pFLayer, g_tempFolder, "tmpShp" + n.ToString());
-                        pTempGeodataset = (IGeoDataset)pTempFeatureLayer.FeatureClass;
-
-                        ////////////
-                        //Use math operation to get local minimum
-                        ////////////
-
-                        ESRI.ArcGIS.SpatialAnalyst.IMathOp pMathOp = new RasterMathOpsClass();
-                        ESRI.ArcGIS.GeoAnalyst.IRasterMakerOp pRasterMakerOp = new RasterMakerOpClass();
-
-                        varWeight = Convert.ToDouble(pFeature2.get_Value(weightFldIndex)); //get the value of the feature's row in weight field
-                        if (varWeight == 0)
-                        {
-                            varWeight = 0.0001;
-                        }
-                        else
-                        {
-                            varWeight = (varWeight / maxWeight);
-                        }
-
-                        if (n == 0)
-                        {
-                            pDistRaster_0 = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false); //get regular distance raster of point
-                            pWeightRaster = pRasterMakerOp.MakeConstant(varWeight, false); //create constant weight raster from weight number
-                            pDistRaster_00 = pMathOp.Divide(pDistRaster_0, pWeightRaster); //divide regular distance raster by weight field
-                            pMinimumRaster = pDistRaster_00; //store final output raster into pMinimumRaster
-                        }
-                        if (n > 0)
-                        {
-                            pDistRaster_1 = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false); //get regular distance raster
-                            pWeightRaster = pRasterMakerOp.MakeConstant(varWeight, false); //create constant weight raster from weight number
-                            pDistRaster_11 = pMathOp.Divide(pDistRaster_1, pWeightRaster); //divide regular distance raster by weight field
-                            pTempMinRaster = LocalMinimum2Rasters(pMinimumRaster, pDistRaster_11, g_tempFolder); //compare current raster with new raster and getminimum
-                            pMinimumRaster = pTempMinRaster; //store the new minimum raster into pminimumraster
-                        }
-
-                        DeleteFeatureDataset(g_tempFolder, "tmpShp" + n.ToString());
-                        n = n + 1;
-                        g_pct = Convert.ToInt32(n / recNum * 100);
-                        g_pPro.Position = g_pct;
-
-                        pFeature2 = pFCursor2.NextFeature();
-
-
-                    }
+                    ESRI.ArcGIS.Geodatabase.IGeoDataset pFlowDirRaster;
+                    ESRI.ArcGIS.Geodatabase.IGeoDataset pBasinRaster;
 
+                    //g_pPro.Message = "Generating Voronoi Diagram ...";
+                    pFlowDirRaster = pHydrologyOp.FlowDirection(pMinimumRaster, false, false); //CREATE FLOW DIRECTION RASTER
 
-                }
+                    pBasinRaster = pHydrologyOp.Basin(pFlowDirRaster); //CREATE BASIN RASTER
 
 
-                else
-                {
-                    MessageBox.Show("Marker1");
-                    CreateOVDistanceRaster(pFLayer.FeatureClass, pDistanceOP, out pMinimumRaster);
-                    MessageBox.Show("Marker2");
-                }
-                pMinimumGeodatasetCollection.Add(pMinimumRaster);
-                pFeatureSelection.Clear();
 
-            }//);
-      
-            //pTempGeodataset = (IGeoDataset)pFeatureLayer.FeatureClass;
-            //pMinimumRaster = pDistanceOP.EucDistanceFull(pTempGeodataset, true, false, false);
+                    ////////////
+                    //RASTER TO POLYGON OPERATIONS
+                    ////////////
 
-            if (pMinimumGeodatasetCollection.Count == 1) //if just one input feature class
-            {
-                pMinimumRaster = pMinimumGeodatasetCollection[0];
-                pFeatureLayer = pFeatureLayerCollection[0];
-        
-            }
-            
-            else if (pMinimumGeodatasetCollection.Count == 2) //if two input feature classes, get local minimum
-            {
-                pMinimumRaster = LocalMinimum2Rasters(pMinimumGeodatasetCollection[0], pMinimumGeodatasetCollection[1], g_tempFolder);
-              
-            }
+                    ESRI.ArcGIS.GeoAnalyst.IConversionOp pConversionOp;
+                    pConversionOp = new RasterConversionOpClass();
+                    ESRI.ArcGIS.Geodatabase.IGeoDataset pVoronoiFClassOut;
 
-            else if (pMinimumGeodatasetCollection.Count == 3) //if three input feature classes, get local minimum
-            {
-                pMinimumRaster = LocalMinimum3Rasters(pMinimumGeodatasetCollection[0], pMinimumGeodatasetCollection[1], pMinimumGeodatasetCollection[2], g_tempFolder);  
-            }
 
-            
-            g_pPro.Position = 0;
-            g_pPro.Hide();
 
-            pEnv.SetCellSize(esriRasterEnvSettingEnum.esriRasterEnvValue, cellsize);
-            pEnv.SetExtent(esriRasterEnvSettingEnum.esriRasterEnvValue, pExt);
 
-      
 
-            ESRI.ArcGIS.DataSourcesRaster.IRasterBandCollection pRasBandCol; //this code block takes an IGeoDataset and converts it to a raster dataset
-            pRasBandCol = (IRasterBandCollection)pMinimumRaster;
-            ESRI.ArcGIS.DataSourcesRaster.IRasterBand pRasBand;
-            pRasBand = pRasBandCol.Item(0);
-            ESRI.ArcGIS.Geodatabase.IRasterDataset pRasDataset;
-            pRasDataset = pRasBand.RasterDataset;
+                    ESRI.ArcGIS.Geodatabase.IWorkspace pTempWSP;
+                    pTempWSP = pSWSF.OpenFromFile(strOutRasPath + "\\tmpVoro0004", 0);
 
 
-            if (pRasDataset.CanCopy())
-            {
-                pRasDataset.Copy(strOutDistRasterFile, pWS);
+                    ESRI.ArcGIS.Geodatabase.IWorkspace pFinalWSP;
+                    pFinalWSP = pSWSF.OpenFromFile(strOutVoronoiPath, 0);
 
-            }
-            else
-            {
-                MessageBox.Show("Unable to copy raster dataset", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                btnOK.Enabled = true;
-                return;
-            }
 
-       
-            ////////////
-            //CREATE FLOW DIRECTION AND BASIN RASTERS WHICH WILL BE USED TO GENERATE POLYGON SHAPEFILE FROM DISTANCE RASTER
-            ////////////
 
-            ESRI.ArcGIS.SpatialAnalyst.IHydrologyOp pHydrologyOp;
-            pHydrologyOp = new RasterHydrologyOpClass();
+                    ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pTempFWS;
+                    pTempFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(strOutRasPath + "\\tmpVoro0004", 0);
 
-            ESRI.ArcGIS.Geodatabase.IGeoDataset pFlowDirRaster;
-            ESRI.ArcGIS.Geodatabase.IGeoDataset pBasinRaster;
+                    ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pTempFWS2;
+                    pTempFWS2 = (IFeatureWorkspace)pSWSF.OpenFromFile(strOutRasPath + "\\tmpVoro0004", 0);
 
-            g_pPro.Message = "Generating Voronoi Diagram ...";
-            pFlowDirRaster = pHydrologyOp.FlowDirection(pMinimumRaster, false, false); //CREATE FLOW DIRECTION RASTER
+                    ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFinalFWS;
+                    pFinalFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(strOutVoronoiPath, 0);
 
-            pBasinRaster = pHydrologyOp.Basin(pFlowDirRaster); //CREATE BASIN RASTER
 
-  
 
-            ////////////
-            //RASTER TO POLYGON OPERATIONS
-            ////////////
 
-            ESRI.ArcGIS.GeoAnalyst.IConversionOp pConversionOp;
-            pConversionOp = new RasterConversionOpClass();
-            ESRI.ArcGIS.Geodatabase.IGeoDataset pVoronoiFClassOut;
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pSWSF;
 
-            Type t1 = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DO NOT REMOVE. Fixes strange casting error from COM rewrapping. 
-            System.Object obj3 = Activator.CreateInstance(t1);
+                    g_pPro.Message = "Generating Voronoi Shapefile...";
+                    ESRI.ArcGIS.Carto.IFeatureLayer pVoronoiLayer;
+                    pVoronoiLayer = new FeatureLayerClass();
+                    ESRI.ArcGIS.Carto.IFeatureLayer pJoinedVoronoiLayer;
+                    pJoinedVoronoiLayer = new FeatureLayerClass();
+                    ESRI.ArcGIS.Carto.IFeatureLayer pTransferVoronoiLayer;
+                    pTransferVoronoiLayer = new FeatureLayerClass();
 
-            pSWSF = (ShapefileWorkspaceFactory)obj3;
-
-
-            ESRI.ArcGIS.Geodatabase.IWorkspace pTempWSP;
-            pTempWSP = pSWSF.OpenFromFile(g_tempFolder, 0);
-
-
-            ESRI.ArcGIS.Geodatabase.IWorkspace pFinalWSP;
-            pFinalWSP = pSWSF.OpenFromFile(strOutVoronoiPath, 0);
-
-
-
-            ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pTempFWS;
-            pTempFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(g_tempFolder, 0);
-
-            ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pTempFWS2;
-            pTempFWS2 = (IFeatureWorkspace)pSWSF.OpenFromFile(g_tempFolder, 0);
-
-            ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFinalFWS;
-            pFinalFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(strOutVoronoiPath, 0);
-
-
-
-
-
-                g_pPro.Message = "Generating Voronoi Shapefile...";
-                ESRI.ArcGIS.Carto.IFeatureLayer pVoronoiLayer;
-                pVoronoiLayer = new FeatureLayerClass();
-                ESRI.ArcGIS.Carto.IFeatureLayer pJoinedVoronoiLayer;
-                pJoinedVoronoiLayer = new FeatureLayerClass();
-                ESRI.ArcGIS.Carto.IFeatureLayer pTransferVoronoiLayer;
-                pTransferVoronoiLayer = new FeatureLayerClass();
-  
-            if (chkSpatialJoin.Checked == true)
-                {
-                    pVoronoiFClassOut = pConversionOp.RasterDataToPolygonFeatureData(pBasinRaster, pTempWSP, "temp" + strOutVoronoiFile, true); //CREATE TEMPORARY POLYGON HERE FROM BASIN RASTER TO BE SPATIALLY JOINED
-                    ESRI.ArcGIS.Geodatabase.IFeatureClass newVoroFClass;
-                    pVoronoiLayer.FeatureClass = pTempFWS.OpenFeatureClass("temp" + strOutVoronoiFile);
-                    newVoroFClass = FeatureToPolygonSpatialJoin(pFeatureLayer, pVoronoiLayer, strOutVoronoiPath, strOutVoronoiFile);
-                    pTransferVoronoiLayer.FeatureClass = pTempFWS2.OpenFeatureClass(strOutVoronoiFile);
-                    ConvertFeatureClass(pTransferVoronoiLayer.FeatureClass, pFinalWSP, strOutVoronoiFile);
-                    pJoinedVoronoiLayer.FeatureClass = pFinalFWS.OpenFeatureClass(strOutVoronoiFile); //set the layer to get the newly spatially joined shapefile
-
-                }
-                else
-                {
-                    pVoronoiFClassOut = pConversionOp.RasterDataToPolygonFeatureData(pBasinRaster, pFinalWSP, strOutVoronoiFile, true);
-                    pVoronoiLayer.FeatureClass = pFinalFWS.OpenFeatureClass(strOutVoronoiFile);
-
-                }
-
-
-                g_pPro.Hide();
-
-                //once the raster and shapefile have been created, if ADD OUTPUT TO ARCMAP is checked, add the layers to ArcMap through Arcobjects.
-
-
-                if (chkAddDistRaster.Checked == true)
-                {
-
-                    ESRI.ArcGIS.Geodatabase.IRasterDataset pRasFinalDataset;
-                    pRasFinalDataset = OpenFileRasterDataset(strOutRasPath, strOutDistRasterFile);
-                    AddRasterLayer(pMap, pRasFinalDataset);
-                }
-
-                if (chkAddVoronoi.Checked == true)
-                {
                     if (chkSpatialJoin.Checked == true)
                     {
-                        pJoinedVoronoiLayer.Name = Extensions.LeftExtract(strOutVoronoiFile, strOutVoronoiFile.Length - 4);
-                        pMap.AddLayer(pJoinedVoronoiLayer);
+                        pVoronoiFClassOut = pConversionOp.RasterDataToPolygonFeatureData(pBasinRaster, pTempWSP, "temp" + strOutVoronoiFile, true); //CREATE TEMPORARY POLYGON HERE FROM BASIN RASTER TO BE SPATIALLY JOINED
+                        ESRI.ArcGIS.Geodatabase.IFeatureClass newVoroFClass;
+                        pVoronoiLayer.FeatureClass = pTempFWS.OpenFeatureClass("temp" + strOutVoronoiFile);
+                        newVoroFClass = FeatureToPolygonSpatialJoin(pFeatureLayer, pVoronoiLayer, strOutVoronoiPath, strOutVoronoiFile);
+                        pTransferVoronoiLayer.FeatureClass = pTempFWS2.OpenFeatureClass(strOutVoronoiFile);
+                        ConvertFeatureClass(pTransferVoronoiLayer.FeatureClass, pFinalWSP, strOutVoronoiFile);
+                        pJoinedVoronoiLayer.FeatureClass = pFinalFWS.OpenFeatureClass(strOutVoronoiFile); //set the layer to get the newly spatially joined shapefile
+
                     }
                     else
                     {
-                        pVoronoiLayer.Name = Extensions.LeftExtract(strOutVoronoiFile, strOutVoronoiFile.Length - 4);
-                        pMap.AddLayer(pVoronoiLayer);
+                        pVoronoiFClassOut = pConversionOp.RasterDataToPolygonFeatureData(pBasinRaster, pFinalWSP, strOutVoronoiFile, true);
+                        pVoronoiLayer.FeatureClass = pFinalFWS.OpenFeatureClass(strOutVoronoiFile);
+
                     }
-                }
-            
+
+
+                    //g_pPro.Hide();
+
+                    //once the raster and shapefile have been created, if ADD OUTPUT TO ARCMAP is checked, add the layers to ArcMap through Arcobjects.
+
+
+                    if (chkAddDistRaster.Checked == true)
+                    {
+
+                        ESRI.ArcGIS.Geodatabase.IRasterDataset pRasFinalDataset;
+                        pRasFinalDataset = OpenFileRasterDataset(strOutRasPath, strOutDistRasterFile, pWSF);
+                        AddRasterLayer(pMap, pRasFinalDataset);
+                    }
+
+                    if (chkAddVoronoi.Checked == true)
+                    {
+                        if (chkSpatialJoin.Checked == true)
+                        {
+                            pJoinedVoronoiLayer.Name = Extensions.LeftExtract(strOutVoronoiFile, strOutVoronoiFile.Length - 4);
+                            pMap.AddLayer(pJoinedVoronoiLayer);
+                        }
+                        else
+                        {
+                            pVoronoiLayer.Name = Extensions.LeftExtract(strOutVoronoiFile, strOutVoronoiFile.Length - 4);
+                            pMap.AddLayer(pVoronoiLayer);
+                        }
+                    }
+                    g_pPro.Position = 0;
+                    g_pPro.Hide();
+                    //this.Close();
+
+                }))
+                );
+
+                
+                
+
+            }
+            catch(Exception ex)
+            {
+                
+                MessageBox.Show(ex.Message + " at " + ex.Source + " at " + ex.StackTrace);
+                frmVoronoi.ActiveForm.Visible = true;
+                btnOK.Enabled = true;
+            }
+           
         }
 
-
+   
         ////////////
         //FORM CODING ENDS HERE. IMPLEMENTED METHODS AND EXTENSIONS BEYOND THIS POINT
         ////////////
 
-        public IGeoDataset CreateOVDistanceRaster(IFeatureClass InputFeatureClass, IDistanceOp DistanceOP, out IGeoDataset OVDistanceRaster) //Generates OVDistanceRaster from which to create OVD polygons
-        {
-
-            ESRI.ArcGIS.Geodatabase.IGeoDataset temporaryGeodataset = (IGeoDataset)InputFeatureClass;
-            return OVDistanceRaster = DistanceOP.EucDistanceFull(temporaryGeodataset, true, false, false);
-        }
-
-        public KeyValuePair<double,double> GetMaxMinFromNumericalField(IFeatureClass featureClass, string fieldname)
-        {
-            ICursor cursor = (ICursor)featureClass.Search(null, false);
-
-            IDataStatistics dataStatistics = new DataStatisticsClass();
-            dataStatistics.Field = fieldname;
-            dataStatistics.Cursor = cursor;
-
-            System.Collections.IEnumerator enumerator = dataStatistics.UniqueValues;
-            enumerator.Reset();
-
-            while (enumerator.MoveNext())
-            {
-                object myObject = enumerator.Current;
-         
-            }
-
-            cursor = (ICursor)featureClass.Search(null, false);
-            dataStatistics.Cursor = cursor;
-            ESRI.ArcGIS.esriSystem.IStatisticsResults statisticsResults = dataStatistics.Statistics;
-            double min = statisticsResults.Minimum;
-            double max = statisticsResults.Maximum;
-
-            return new KeyValuePair<double, double>(min, max); //In C#, use KeyValuePair to return two values from a method.
-       
-        }
 
         public IGeoDataset LocalMinimum2Rasters(IGeoDataset pRaster1, IGeoDataset pRaster2, string strOutPath)
         {
@@ -1192,13 +1494,7 @@ namespace Voronoi_2._0
             
             //Create a RasterLocalOp operator
             ESRI.ArcGIS.SpatialAnalyst.ILocalOp pLocalOp = new RasterLocalOpClass();
-
-            ESRI.ArcGIS.Geodatabase.IWorkspace pWs;
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSF = new RasterWorkspaceFactoryClass();
-            pWs = pWSF.OpenFromFile(strOutPath, 0);
-
             return pLocalOp.LocalStatistics((IGeoDataset)pRBColl, esriGeoAnalysisStatisticsEnum.esriGeoAnalysisStatsMinimum);
-
         }
 
         public IGeoDataset LocalMinimum3Rasters(IGeoDataset pRaster1, IGeoDataset pRaster2, IGeoDataset pRaster3, string strOutPath)
@@ -1221,24 +1517,14 @@ namespace Voronoi_2._0
 
             //Create a RasterLocalOp operator
             ESRI.ArcGIS.SpatialAnalyst.ILocalOp pLocalOp = new RasterLocalOpClass();
-
-            ESRI.ArcGIS.Geodatabase.IWorkspace pWs;
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSF = new RasterWorkspaceFactoryClass();
-            pWs = pWSF.OpenFromFile(strOutPath, 0);
-
             return pLocalOp.LocalStatistics((IGeoDataset)pRBColl, esriGeoAnalysisStatisticsEnum.esriGeoAnalysisStatsMinimum);
 
         }
 
-        public IFeatureClass CreateNewShapefile(ISpatialReference pSpatialReference, IGeometryDef OutputGeomDef, string strOutFolder, string strOutName)
+        public IFeatureClass CreateNewShapefile(ISpatialReference pSpatialReference, IGeometryDef OutputGeomDef, IWorkspaceFactory pSWSF, string strOutFolder, string strOutName)
         {
             ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFWS;
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWorkspaceFactory;
-
-            Type t = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DO NOT REMOVE. Fixes strange casting error from COM rewrapping. 
-            System.Object obj = Activator.CreateInstance(t);
-            pWorkspaceFactory = (ShapefileWorkspaceFactory)obj;
-            pFWS = (IFeatureWorkspace)pWorkspaceFactory.OpenFromFile(strOutFolder, 0);
+            pFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(strOutFolder, 0);
 
             
             ESRI.ArcGIS.Geodatabase.IFieldsEdit pFields;
@@ -1262,7 +1548,7 @@ namespace Voronoi_2._0
                   
         }
 
-        public IFeatureLayer Selection2FeatureLayer(IFeatureLayer pInputFeatLayer, string strOutFolder, string strOutName)
+        public IFeatureLayer Selection2FeatureLayer(IFeatureLayer pInputFeatLayer, IWorkspaceFactory pSWSF, string strOutFolder, string strOutName)
         {
             ESRI.ArcGIS.Geodatabase.IGeoDataset pGeoDataset;
             ESRI.ArcGIS.Geometry.ISpatialReference pSpatialReference;
@@ -1292,7 +1578,7 @@ namespace Voronoi_2._0
             pSelSet = pFeatureSelection.SelectionSet;
             pSelSet.Search(null, false, out pFCursor);
 
-            pOutputFeatClass = CreateNewShapefile(pSpatialReference, OutputGeomDef, strOutFolder, strOutName); //create shapefile
+            pOutputFeatClass = CreateNewShapefile(pSpatialReference, OutputGeomDef, pSWSF, strOutFolder, strOutName); //create shapefile
             pInputFeature = (IFeature)pFCursor.NextRow();
 
             while (!(pInputFeature == null))
@@ -1310,14 +1596,9 @@ namespace Voronoi_2._0
 
         }
 
-        public void DeleteFeatureDataset(string strPath, string strFileName)
+        public void DeleteFeatureDataset(string strPath, string strFileName, IWorkspaceFactory pSWSF)
         {
-            ESRI.ArcGIS.Geodatabase.IWorkspaceFactory pWSF;
-            Type t = Type.GetTypeFromProgID("esriDataSourcesFile.ShapefileWorkspaceFactory"); //DO NOT REMOVE. Fixes strange casting error from COM rewrapping. 
-            System.Object obj = Activator.CreateInstance(t);
-            pWSF = (ShapefileWorkspaceFactory)obj;
-
-            ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFWS = (IFeatureWorkspace)pWSF.OpenFromFile(strPath, 0);
+            ESRI.ArcGIS.Geodatabase.IFeatureWorkspace pFWS = (IFeatureWorkspace)pSWSF.OpenFromFile(strPath, 0);
             ESRI.ArcGIS.Geodatabase.IDataset pDs = (IDataset)pFWS.OpenFeatureClass(strFileName);
 
             try
@@ -1325,8 +1606,7 @@ namespace Voronoi_2._0
                 if (!(pDs == null))
                 {
                     pDs.Delete();
-                }
-                pWSF = null;
+                }   
                 pFWS = null;
                 pDs = null;
             }
@@ -1652,8 +1932,6 @@ namespace Voronoi_2._0
                 
 
 
-
-
             if (layercounter > 1)
             {
                 chkSpatialJoin.Checked = false;
@@ -1856,7 +2134,7 @@ namespace Voronoi_2._0
             ESRI.ArcGIS.esriSystem.IName pName;
             pName = (IName)pOutDSName;
 
-            //Do a join by location that joins the attributes of the point point cantained within each polygon
+            //Do a join by location that joins the attributes of the point, line or polygon contained within each polygon
             ESRI.ArcGIS.ArcMapUI.ISpatialJoin pSpatialJoin;
             pSpatialJoin = new ESRI.ArcGIS.ArcMapUI.SpatialJoinClass();
             pSpatialJoin.JoinTable = (ITable)pInFeatLayer.FeatureClass; //input
@@ -1877,17 +2155,25 @@ namespace Voronoi_2._0
             
             if (Directory.Exists(rootFolder + "\\tmpVoro0001"))
             {
-                Directory.Delete(rootFolder + "\\tmpVoro0001", true);
-            }
-            System.IO.Directory.CreateDirectory(rootFolder + "\\tmpVoro0001");
+                if (Directory.Exists(rootFolder + "\\tmpVoro0002"))
+                {
+                    System.IO.Directory.CreateDirectory(rootFolder + "\\tmpVoro0003");
+                    return rootFolder + "\\tmpVoro0003";
+                }
 
+                else
+                {
+                    System.IO.Directory.CreateDirectory(rootFolder + "\\tmpVoro0002");
+                    return rootFolder + "\\tmpVoro0002";
+                }    
+                //Directory.Delete(rootFolder + "\\tmpVoro0001", true);
+            }
+
+            System.IO.Directory.CreateDirectory(rootFolder + "\\tmpVoro0001");
             return rootFolder + "\\tmpVoro0001";
 
         }
 
-
-
-  
 
         public void ConvertFeatureClass(IFeatureClass inFeatureClass, IWorkspace outWorkspace, string newName)
         {
@@ -1923,18 +2209,23 @@ namespace Voronoi_2._0
             featureDataConverter.ConvertFeatureClass(inFeatureClassName, null, null,
             outFeatureClassName, null, outFields, "", 100, 0);
         }
-        static IRasterDataset OpenFileRasterDataset(string folderName, string datasetName)
+        static IRasterDataset OpenFileRasterDataset(string folderName, string datasetName, IWorkspaceFactory pWSF)
         {
-            //Open raster file workspace.
-            IWorkspaceFactory workspaceFactory = new RasterWorkspaceFactoryClass();
-            IRasterWorkspace rasterWorkspace = (IRasterWorkspace)workspaceFactory.OpenFromFile(folderName, 0);
+            IRasterWorkspace rasterWorkspace = (IRasterWorkspace)pWSF.OpenFromFile(folderName, 0);
 
             //Open file raster dataset. 
             IRasterDataset rasterDataset = rasterWorkspace.OpenRasterDataset(datasetName);
             return rasterDataset;
         }
 
-     
+        void WriteProgress(int stepFeatureCount, int totalFeatureCount, IStepProgressor g_pPro)
+        {
+            //g_pPro.StepValue = Convert.ToInt32((Convert.ToDouble(stepFeatureCount) / Convert.ToDouble(totalFeatureCount)) * 100);
+            g_pPro.StepValue = stepFeatureCount;
+            g_pPro.Step();
+            // g_pPro.Position = g_pct;     
+        }
+
   
     }
 
@@ -1950,5 +2241,7 @@ namespace Voronoi_2._0
         {
             return value.Substring(0, length);
         }
+
     } 
+
 }
